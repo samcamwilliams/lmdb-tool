@@ -29,8 +29,8 @@ main(Args) ->
 
 run(Args) ->
     case parse_args(Args) of
-        {ok, {merge, FromPath, ToPath}} ->
-            merge_databases(FromPath, ToPath);
+        {ok, {merge, FromPaths, ToPath}} ->
+            merge_databases(FromPaths, ToPath);
         {ok, {print, DbPath, Prefix}} ->
             print_database(DbPath, Prefix);
         {error, Message} ->
@@ -49,31 +49,42 @@ parse_args(_) ->
     {error, "Invalid arguments"}.
 
 parse_merge_args([], Opts) ->
-    case {maps:get(from, Opts, undefined), maps:get(to, Opts, undefined)} of
-        {undefined, _} ->
+    case {maps:get(from, Opts, []), maps:get(to, Opts, undefined)} of
+        {[], _} ->
             {error, "Missing required option --from"};
         {_, undefined} ->
             {error, "Missing required option --to"};
-        {FromPath, ToPath} ->
-            {ok, {merge, FromPath, ToPath}}
+        {FromPaths, ToPath} ->
+            {ok, {merge, lists:reverse(FromPaths), ToPath}}
     end;
 parse_merge_args(["--from", Value | Rest], Opts) ->
-    parse_merge_args(Rest, Opts#{from => Value});
+    Existing = maps:get(from, Opts, []),
+    parse_merge_args(Rest, Opts#{from => [Value | Existing]});
 parse_merge_args(["--to", Value | Rest], Opts) ->
     parse_merge_args(Rest, Opts#{to => Value});
 parse_merge_args([Unknown | _], _Opts) ->
     {error, io_lib:format("Unknown merge option: ~s", [Unknown])}.
 
-merge_databases(FromPath, ToPath) ->
-    case same_path(FromPath, ToPath) of
+merge_databases(FromPaths, ToPath) ->
+    case lists:any(fun(FromPath) -> same_path(FromPath, ToPath) end, FromPaths) of
         true ->
             {error, "Source and destination paths must be different"};
         false ->
-            with_database(FromPath, source, fun(_SourceEnv, SourceDB) ->
-                with_database(ToPath, target, fun(_TargetEnv, TargetDB) ->
-                    merge_stream(SourceDB, TargetDB)
-                end)
+            with_database(ToPath, target, fun(_TargetEnv, TargetDB) ->
+                merge_sources(FromPaths, TargetDB)
             end)
+    end.
+
+merge_sources([], _TargetDB) ->
+    ok;
+merge_sources([FromPath | Rest], TargetDB) ->
+    case with_database(FromPath, source, fun(_SourceEnv, SourceDB) ->
+             merge_stream(SourceDB, TargetDB)
+         end) of
+        ok ->
+            merge_sources(Rest, TargetDB);
+        {error, _} = Error ->
+            Error
     end.
 
 merge_stream(SourceDB, TargetDB) ->
@@ -345,10 +356,10 @@ print_usage() ->
     io:format(
       standard_error,
       "Usage:~n"
-      "  lmdb-tool --merge --from DB1Location --to DB2Location~n"
+      "  lmdb-tool --merge --from DB1Location [--from DB2Location ...] --to DBLocation~n"
       "  lmdb-tool --print DBLocation [Prefix]~n~n"
       "Modes:~n"
-      "  --merge  Copy all key/value pairs from DB1Location to DB2Location.~n"
+      "  --merge  Copy all key/value pairs from one or more sources into DBLocation.~n"
       "           Streaming cursor scan + chunked writes (bounded memory).~n"
       "  --print  Print key/value pairs as \"Key: Value\" lines.~n"
       "           If Prefix is set, starts from that key position onward.~n~n"

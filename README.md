@@ -40,15 +40,15 @@ make uninstall
 ## Usage
 
 ```bash
-lmdb-tool --merge --from DB1Location --to DB2Location
+lmdb-tool --merge --from DB1Location [--from DB2Location ...] --to DBLocation
 lmdb-tool --print DBLocation [Prefix]
 ```
 
 ### Modes
 
-- `--merge --from DB1Location --to DB2Location`
-  - Streams records from source to destination using `elmdb:iterator/1` and
-    `elmdb:iterator_next/2`.
+- `--merge --from DB1Location [--from DB2Location ...] --to DBLocation`
+  - Streams records from one or more sources to one destination using
+    `elmdb:iterator/1` and `elmdb:iterator_next/2`.
   - Writes in bounded-size chunks with `elmdb:put_batch/2`.
   - Does not hold the full dataset in memory.
 - `--print DBLocation [Prefix]`
