@@ -1,0 +1,4 @@
+[{<<"elmdb">>,
+  {git,"https://github.com/permaweb/elmdb-rs.git",
+       {ref,"0276d6b04dcf47b7a74fe446c11e15ff3469c37a"}},
+  0}].

@@ -1,0 +1,8 @@
+{application, lmdb_tool,
+ [{description, "LMDB command-line utilities"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications, [kernel, stdlib]},
+  {modules, [lmdb_tool]},
+  {env, []}
+ ]}.
